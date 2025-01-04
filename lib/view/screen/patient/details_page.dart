@@ -45,10 +45,9 @@ class DetailsPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       fontSize: 13),
                 ),
-                leading: const Icon(
-                  Icons.person,
-                  size: 25,
-                ),
+                leading:IconButton(onPressed: (){
+
+                }, icon: const Icon(Icons.person))
               ),
             ),
             TabBar(
@@ -59,9 +58,7 @@ class DetailsPage extends StatelessWidget {
                 Tab(
                   text: 'About',
                 ),
-                Tab(
-                  text: 'Review',
-                ),
+
                 Tab(
                   text: 'Pending',
                 ),
@@ -72,9 +69,9 @@ class DetailsPage extends StatelessWidget {
                 controller: controller.tabController,
                 children: [
                   const CustomAbout(),
-                  const CustomReview(),
                   GetBuilder<DetailsController>(
                     builder: (controller) {
+                      if(controller.appointmentsPending.isEmpty)return Center(child: Text('NoAppoinmentFound',style: TextStyle(color: Colors.black,fontSize: 22),),);
                       return HandlingDataView(
                           statusRequest: controller.statusRequest,
                           widget: ListView.separated(

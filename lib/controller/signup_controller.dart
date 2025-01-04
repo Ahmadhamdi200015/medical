@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drop_down_list/model/selected_list_item.dart';
@@ -8,23 +9,26 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medicall/core/constant/route.dart';
+import 'package:medicall/core/function/staterequest.dart';
 
 import '../core/function/uploadfile.dart';
 
 class SignupController extends GetxController {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   List<SelectedListItem> specialties = [];
   File? file;
+  StatusRequest statusRequest=StatusRequest.none;
 
   GlobalKey<FormState> formState = GlobalKey();
   late TextEditingController catId;
   late TextEditingController catName;
   TextEditingController? nameController;
-  late final TextEditingController emailController;
-  late final TextEditingController passwordController;
+  late  TextEditingController emailController;
+  late  TextEditingController passwordController;
+
+  int? verifyCode;
 
   // متغير لتخزين القيمة المختارة
   var selectedValue = 'patient';
@@ -51,32 +55,46 @@ class SignupController extends GetxController {
   }
 
 
-  Future<void> subscribeToTopic() async {
-    // اشتراك المستخدم في topic معين
-    await _firebaseMessaging.subscribeToTopic("all_users");
-    print("User subscribed to 'all_users' topic");
+
+  Future<int> generateUniqueRandomNumber() async {
+    final random = Random();
+    int randomNumber = random.nextInt(100000); // توليد رقم بين 0 و 999,999
+
+    // التحقق إذا كان الرقم موجودًا بالفعل في قاعدة البيانات
+    final QuerySnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('verifyCode', isEqualTo: randomNumber)
+        .get();
+
+    // إذا كان الرقم موجودًا، حاول مرة أخرى
+    if (userSnapshot.docs.isNotEmpty) {
+      return generateUniqueRandomNumber();
+    }
+
+    return randomNumber;
   }
 
-  // دالة لإلغاء الاشتراك
-  Future<void> unsubscribeFromTopic() async {
-    await _firebaseMessaging.unsubscribeFromTopic("all_users");
-    print("User unsubscribed from 'all_users' topic");
-  }
+
 
   // وظيفة لإضافة بيانات إلى الكولكشن
   Future<void> addUser(String userId, String email, String role, String name,
-      String fcmToken,String catName) async {
+      String fcmToken,String catName,String file) async {
     try {
-      if(selectedValue=='doctor'){
+      if(selectedValue=='doctor'&& file.toString().isNotEmpty){
+        String cleanedFilePath = file.replaceFirst("File: ", "").replaceAll("'", "");
+
         await firestore.collection('Users').doc(userId).set({
           'id': userId,
           'name': name,
           'email': email,
           'role': role, // مثل: patient, doctor, admin
           'status': 'pending',
+          'file':cleanedFilePath,
           'fcmToken': fcmToken,
           'specialty':catName,
           'specialtyId': catId.text,
+          'approval':'0',
+          'verifyCode':verifyCode.toString(),
           'createdAt': FieldValue.serverTimestamp(),
         });
       }else{
@@ -87,9 +105,12 @@ class SignupController extends GetxController {
           'email': email,
           'role': role, // مثل: patient, doctor, admin
           'status': 'pending',
+          'file':'',
           'fcmToken': fcmToken,
           'specialty':'',
           'specialtyId': '',
+          'approval':'0',
+          'verifyCode':verifyCode.toString(),
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
@@ -172,13 +193,13 @@ class SignupController extends GetxController {
 
 
   Future<void> signUpWithEmailPassword() async {
+    statusRequest=StatusRequest.lodaing;
+    update();
     try {
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-    await  subscribeToTopic();
-
       if(selectedValue=='doctor'){
         try {
         await  addDoctorToSpecialty(catId.text,auth.currentUser!.uid,nameController!.text,emailController.text);
@@ -189,14 +210,13 @@ class SignupController extends GetxController {
       }
       // الحصول على FCM Token
       String? fcmToken = await FirebaseMessaging.instance.getToken();
-
       addUser(auth.currentUser!.uid, emailController.text, selectedValue,
-          nameController!.text, fcmToken!,selectedValue=='doctor'? catName.text:"");
+          nameController!.text, fcmToken!,selectedValue=='doctor'? catName.text:"",file.toString());
       Get.toNamed(AppRoute.login);
-      print('Account created successfully!');
     } catch (e) {
       print('Error: $e');
     }
+    update();
   }
 
 
@@ -260,21 +280,19 @@ class SignupController extends GetxController {
     }
   }
 
-
-
-
   goToLoginPage() {
     Get.toNamed(AppRoute.login);
   }
 
   @override
-  void onInit() {
+  void onInit()async {
     nameController = TextEditingController();
     emailController = TextEditingController();
     passwordController = TextEditingController();
     catId = TextEditingController();
     catName = TextEditingController();
-    fetchSpecialties();
+    verifyCode= await generateUniqueRandomNumber();
+    await fetchSpecialties();
     super.onInit();
   }
 }

@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:medicall/core/constant/route.dart';
 import 'package:medicall/core/function/staterequest.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/function/notification_helper.dart';
+import '../../core/services/service.dart';
 
 class DetailsController extends GetxController  with GetSingleTickerProviderStateMixin{
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
@@ -17,10 +19,14 @@ StatusRequest statusRequest=StatusRequest.none;
   String? doctorName;
  String? doctorRole;
  String?doctorId;
+  MyService myService=Get.find();
+  String? userId;
 
   final uuid = Uuid();
 
-
+goToMessagePage(){
+  Get.toNamed(AppRoute.messagePage);
+}
   List<Map<String, dynamic>> appointments=[];
   List<Map<String, dynamic>> appointmentsPending=[];
 
@@ -100,7 +106,7 @@ StatusRequest statusRequest=StatusRequest.none;
 
 
   Future<void> fetchAppointmentsPendingLast12Hours() async {
-    String userName=auth.currentUser!.uid;
+    userId=myService.sharedPrefrences.getString('userId');
 
     try {
       statusRequest=StatusRequest.lodaing;
@@ -113,7 +119,7 @@ StatusRequest statusRequest=StatusRequest.none;
           .collection('appointments')
           .where('doctorId', isEqualTo: doctorId) // تصفية على معرف الطبيب
           .where('appointmentStatus',isEqualTo: 'pending')
-          .where('patientId',isEqualTo: userName)
+          .where('patientId',isEqualTo: userId)
           .orderBy('createdAt', descending: true) // ترتيب من الأحدث إلى الأقدم
           .get();
 
@@ -197,8 +203,8 @@ StatusRequest statusRequest=StatusRequest.none;
 
   Future<void> bookAppointment() async {
     try {
-      String userId = auth.currentUser!.uid;
-      String userName = await getUserNameById(userId);
+      userId=myService.sharedPrefrences.getString('userId').toString();
+      String userName = await getUserNameById(userId!);
       String appointmentId = uuid.v4();
 
       // مرجع المواعيد
@@ -309,8 +315,7 @@ StatusRequest statusRequest=StatusRequest.none;
     fetchAppointmentsLast24Hours();
     fetchAppointmentsPendingLast12Hours();
     fetchRating();
-
-    tabController = TabController(length: 3, vsync: this); // Adjust the length based on tabs
+    tabController = TabController(length: 2, vsync: this); // Adjust the length based on tabs
 
     super.onInit();
   }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:googleapis/authorizedbuyersmarketplace/v1.dart';
+import 'package:medicall/core/services/service.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/function/notification_helper.dart';
@@ -19,6 +20,8 @@ class DoctorHomeController extends GetxController{
   String? doctorRole;
   String?doctorId;
 
+  MyService myService=Get.find();
+
   final uuid = Uuid();
 
 
@@ -28,6 +31,8 @@ class DoctorHomeController extends GetxController{
 // Controller لتخزين الوقت المحدد
   TimeOfDay? selectedTime;
   TimeOfDay? timeEnd;
+
+
 
   Future<void> getLastTip() async {
     try {
@@ -45,7 +50,8 @@ class DoctorHomeController extends GetxController{
 
 
   Future<void> fetchAppointmentsLast24Hours() async {
-    String userId=auth.currentUser!.uid;
+    String userId=myService.sharedPrefrences.getString('userId').toString();
+    // String userId=auth.currentUser!.uid;
     try {
       statusRequest=StatusRequest.lodaing;
       update();

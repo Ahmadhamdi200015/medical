@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:googleapis/authorizedbuyersmarketplace/v1.dart';
+import 'package:medicall/core/services/service.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/function/notification_helper.dart';
@@ -17,6 +18,8 @@ class DoctorCompletedController extends GetxController{
   String? doctorName;
   String? doctorRole;
   String?doctorId;
+  MyService myService=Get.find();
+  String? userId;
 
   final uuid = Uuid();
 
@@ -29,7 +32,7 @@ class DoctorCompletedController extends GetxController{
   TimeOfDay? timeEnd;
 
   Future<void> fetchAppointmentsCompleted() async {
-    String userId=auth.currentUser!.uid;
+   userId=myService.sharedPrefrences.getString('userId');
     try {
       statusRequest=StatusRequest.lodaing;
       update();

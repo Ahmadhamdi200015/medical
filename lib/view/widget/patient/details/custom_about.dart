@@ -12,10 +12,10 @@ class CustomAbout extends GetView<DetailsController> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final textPainter = TextPainter(
-          text: const TextSpan(
+          text: TextSpan(
             text:
-                'Dr. Ali Alkahlout the greatest Surgery\nSpecialist since 2005 at Bristol Hospital in south England. He has achieved several awards for his wonderful contribution his own field ..',
-            style: TextStyle(fontSize: 16),
+                'the doctor the greatest ${controller.doctorRole}\nSpecialist since 2005 at Bristol Hospital in south England. He has achieved several awards for his wonderful contribution his own field ..',
+            style: const TextStyle(fontSize: 16),
           ),
           maxLines: 3,
           textDirection: TextDirection.ltr,
@@ -34,7 +34,7 @@ class CustomAbout extends GetView<DetailsController> {
                   overflow: controller.isExpanded
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
-                  'Dr. Ali Alkahlout the greatest Surgery\nSpecialist since 2005 at Bristol Hospital in south England. He has achieved several awards for his wonderful contribution his own field',
+                  'the doctor the greatest ${controller.doctorRole}\nSpecialist since 2005 at Bristol Hospital in south England. He has achieved several awards for his wonderful contribution his own field',
                   style: const TextStyle(color: Colors.grey, fontSize: 15),
                 ),
               ),
@@ -61,29 +61,32 @@ class CustomAbout extends GetView<DetailsController> {
                         fontWeight: FontWeight.bold,
                         color: Colors.black),
                   )),
-              GetBuilder<DetailsController>(builder: (controller) {
-
-                return HandlingDataView(statusRequest: controller.statusRequest, widget: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: controller.appointments.length,
-                  separatorBuilder: (context, index) => const SizedBox(
-                    height: 5,
-                  ),
-                  itemBuilder: (context, index) {
-                    return Card(
-                        color: Colors.white,
-                        child: ListTile(
-                          title: const Text(
-                            'Medical examination',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                              '${controller.appointments[index]['appointmentTime']} pm- ${controller.appointments[index]['appointmentEnd']}pm'),
-                        ));
-                  },
-                ));
-              },)
-              ,const Spacer(),
+              GetBuilder<DetailsController>(
+                builder: (controller) {
+                  return HandlingDataView(
+                      statusRequest: controller.statusRequest,
+                      widget: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: controller.appointments.length,
+                        separatorBuilder: (context, index) => const SizedBox(
+                          height: 5,
+                        ),
+                        itemBuilder: (context, index) {
+                          return Card(
+                              color: Colors.white,
+                              child: ListTile(
+                                title: const Text(
+                                  'Medical examination',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                    '${controller.appointments[index]['appointmentTime']} pm- ${controller.appointments[index]['appointmentEnd']}pm'),
+                              ));
+                        },
+                      ));
+                },
+              ),
+              const Spacer(),
               MaterialButton(
                 minWidth: MediaQuery.sizeOf(context).width / 1,
                 padding: const EdgeInsets.symmetric(vertical: 15),

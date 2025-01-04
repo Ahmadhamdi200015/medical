@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medicall/core/constant/route.dart';
 import 'package:medicall/core/function/staterequest.dart';
+import 'package:medicall/core/services/service.dart';
 
+import '../../core/class/fire_service.dart';
 import '../../core/function/notification_helper.dart';
 
 class PatientController extends GetxController {
@@ -13,24 +15,33 @@ class PatientController extends GetxController {
   final FirebaseAuth auth = FirebaseAuth.instance;
   NotificationsHelper notificationsHelper = NotificationsHelper();
   FirebaseMessaging messaging = FirebaseMessaging.instance;
+  bool isSearch = false;
+  bool exists=false;
+  MyService myService=Get.find();
+  String? userId;
 
+   int? selectedCat;
+
+
+
+
+  final fireS = FireServices();
+  String? senderName;
+  String? senderId;
+  late TextEditingController doctorSearch;
   String tipText = '';
   List specialties = [];
+  List doctorsNames = [];
   List doctors = [];
   StatusRequest statusRequest = StatusRequest.none;
 
   var users = <Map<String, dynamic>>[]; // قائمة للمستخدمين يمكن مراقبتها
-  var isLoading = true; // متغير لمراقبة حالة التحميل
 
-  // void _initFirebaseMessaging() {
-  //   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-  //     // عرض الرسالة داخل Dialog
-  //     if (message.notification != null) {
-  //       _showDialog(message.notification!.title, message.notification!.body);
-  //     }
-  //   });
-  // }
 
+  changeChoose(val) {
+    selectedCat = val;
+    update();
+  }
   void _showDialog(String title, String body) {
     Get.dialog(
         AlertDialog(
@@ -48,6 +59,49 @@ class PatientController extends GetxController {
         barrierDismissible: true);
   }
 
+  goToMessagePage() {
+    Get.toNamed(AppRoute.messagePage);
+  }
+
+  logOut() async {
+    print(userId);
+    myService.sharedPrefrences.clear();
+    Get.offAllNamed(AppRoute.login);
+  }
+
+  checkSearch(val) {
+    if (val == "" || RegExp(r"\s").hasMatch(doctorSearch.text)) {
+      isSearch = false;
+      update();
+    } else {
+      isSearch = true;
+      update();
+    }
+    update();
+  }
+
+
+
+
+  onSearchItems() async {
+    statusRequest = StatusRequest.lodaing;
+    update();
+    if (doctorSearch.text.isEmpty ||
+        RegExp(r"\s").hasMatch(doctorSearch.text)) {
+      print("===============nodata in search");
+      isSearch = false;
+      statusRequest = StatusRequest.none;
+      update();
+    } else {
+      isSearch = true;
+      doctorsNames.clear();
+      await searchDoctorByName(doctorSearch.text);
+      statusRequest = StatusRequest.none;
+      update();
+    }
+    update();
+  }
+
   Future<void> fetchSpecialties() async {
     try {
       QuerySnapshot querySnapshot =
@@ -60,7 +114,7 @@ class PatientController extends GetxController {
           ...doc.data() as Map<String, dynamic>, // بيانات التخصص
         };
       }).toList();
-      print(specialties[0]['id']);
+      update();
       print('fetching specialties');
     } catch (e) {
       print('Error fetching specialties: $e');
@@ -68,9 +122,75 @@ class PatientController extends GetxController {
     update();
   }
 
+  requestFriends(String receiverId, String receiverEmail, String receiverName) async{
+    statusRequest = StatusRequest.lodaing;
+    update();
+    try {
+    await  fireS.sendFriendRequest(
+          receiverId, receiverEmail, receiverName, senderName);
+      statusRequest = StatusRequest.none;
+      Get.snackbar('Alert', 'friend request process success');
+      update();
+    } catch (e) {
+      statusRequest = StatusRequest.none;
+      update();
+      print('error is :$e');
+    }
+    update();
+  }
 
+  Future<DocumentSnapshot> getUser() async {
+    userId=myService.sharedPrefrences.getString('userId');
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection(
+            'Users') // استبدل 'users' باسم جدول المستخدمين لديك إذا كان مختلفاً
+        .doc() // استخدم المعرف هنا لجلب المستخدم المحدد
+        .get();
+    senderName = userDoc['name'];
+    senderId=userDoc['id'];
+    return userDoc;
+  }
+
+
+  getAllDoctors() async {
+    print("Fetching doctors...");
+
+    // تأكد من إفراغ القائمة عند البداية
+    doctors.clear();
+    statusRequest = StatusRequest.lodaing;
+    isSearch=false;
+    update();
+
+    try {
+      isSearch=false;
+      // الوصول إلى جميع التخصصات
+      final QuerySnapshot specialtiesSnapshot =
+          await FirebaseFirestore.instance.collection('specialties').get();
+
+      // التكرار على جميع التخصصات
+      for (var specialty in specialtiesSnapshot.docs) {
+        // جلب مجموعة الأطباء داخل التخصص
+        final QuerySnapshot doctorsSnapshot = await FirebaseFirestore.instance
+            .collection('specialties')
+            .doc(specialty.id)
+            .collection('doctors')
+            .where('doctorStatus', isEqualTo: 'accepted')
+            .get();
+
+        // إضافة الأطباء إلى القائمة
+        doctors.addAll(doctorsSnapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>));
+      }
+      statusRequest = StatusRequest.none;
+    } catch (e) {
+      print('Error fetching doctors: $e');
+    }
+
+    update();
+  }
 
   Future<void> getDoctorsBySpecialty(String specialtyId) async {
+    doctors.clear();
     statusRequest = StatusRequest.lodaing;
     update();
     try {
@@ -78,20 +198,53 @@ class PatientController extends GetxController {
           .collection('specialties')
           .doc(specialtyId)
           .collection('doctors')
-          .where('doctorStatus',isEqualTo: 'accepted')
+          .where('doctorStatus', isEqualTo: 'accepted')
           .get();
 
       // تحويل الوثائق إلى قائمة من الخرائط
       doctors = doctorsSnapshot.docs.map((doc) {
         return {
           'id': doc.id, // معرّف الطبيب
-          ...doc.data() as Map<String, dynamic>, // بيانات الطبيب
+          ...doc.data(), // بيانات الطبيب
         };
       }).toList();
       statusRequest = StatusRequest.none;
       print('fetching doctors:');
     } catch (e) {
       print('Error fetching doctors: $e');
+    }
+    update();
+  }
+
+  Future<void> searchDoctorByName(String doctorName) async {
+    statusRequest = StatusRequest.lodaing;
+    update();
+    try {
+      // الوصول إلى جميع التخصصات
+      final QuerySnapshot specialtiesSnapshot =
+          await FirebaseFirestore.instance.collection('specialties').get();
+
+      // التكرار على جميع التخصصات
+      for (var specialty in specialtiesSnapshot.docs) {
+        // جلب مجموعة الأطباء داخل التخصص
+        final QuerySnapshot doctorsSnapshot = await FirebaseFirestore.instance
+            .collection('specialties')
+            .doc(specialty.id)
+            .collection('doctors')
+            .where('doctorName', isEqualTo: doctorName)
+            .get();
+        isSearch=true;
+
+        // إضافة الأطباء إلى القائمة
+        for (var doctor in doctorsSnapshot.docs) {
+          doctorsNames.add(doctor.data() as Map<String, dynamic>);
+          print(doctor['doctorName']);
+        }
+      }
+    } catch (e) {
+      statusRequest = StatusRequest.none;
+      update();
+      print('Error: $e');
     }
     update();
   }
@@ -125,30 +278,6 @@ class PatientController extends GetxController {
     });
   }
 
-  // جلب المستخدمين الذين دورهم ليس admin وحالتهم pending
-  Future<void> fetchPendingUsers() async {
-    try {
-      print('Success fetching users:');
-      isLoading = true;
-      QuerySnapshot querySnapshot = await firestore
-          .collection('Users')
-          .where('role', isEqualTo: 'doctor')
-          .get();
-
-      users = querySnapshot.docs.map((doc) {
-        return {
-          'id': doc.id,
-          ...doc.data() as Map<String, dynamic>,
-        };
-      }).toList();
-    } catch (e) {
-      print('Error fetching users: $e');
-    } finally {
-      isLoading = false;
-    }
-    update();
-  }
-
   Future<void> getLastTip() async {
     try {
       // جلب آخر نصيحة تم إضافتها من الكولكشن "tips"
@@ -174,13 +303,14 @@ class PatientController extends GetxController {
 
   @override
   void onInit() async {
-    await fetchSpecialties();
-    if (specialties.isNotEmpty) {
-      getDoctorsBySpecialty(specialties[0]['id']);
-    }
-    fetchPendingUsers();
+    doctorSearch = TextEditingController();
     await getLastTip();
-    // _showDialog('Daily Advice', tipText);
+    _showDialog('Daily Advice', tipText);
+    await fetchSpecialties();
+    await getAllDoctors();
+    await getLastTip();
+    await getUser();
+
 
     super.onInit();
   }

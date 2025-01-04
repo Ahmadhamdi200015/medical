@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medicall/controller/doctor/doctor_screen_controller.dart';
+import 'package:medicall/view/widget/doctors/custom_drawer.dart';
 
 import '../../widget/custtombottombar.dart';
 
@@ -12,6 +13,8 @@ class DoctorHomeScreen extends StatelessWidget{
     DoctorScreenController controller=Get.put(DoctorScreenController());
     return GetBuilder<DoctorScreenController>(builder: (controller) {
       return Scaffold(
+        appBar: AppBar(),
+        drawer: const CustomDrawer(),
         backgroundColor: Colors.white,
         bottomNavigationBar:BottomAppBar(
           color:Colors.white,
@@ -26,7 +29,7 @@ class DoctorHomeScreen extends StatelessWidget{
                     onPressed: () {
                       controller.changePage(0);
                     },
-                    active: controller.currentpage == 0 ? true : false,
+                    active: controller.currentPage == 0 ? true : false,
                     iconBottom: Icons.home_outlined,
                   ),
                   CusttomBottomBar(
@@ -34,24 +37,23 @@ class DoctorHomeScreen extends StatelessWidget{
                     onPressed: () {
                       controller.changePage(1);
                     },
-                    active: controller.currentpage == 1 ? true : false,
-                    iconBottom: Icons.rate_review_outlined,
-                  ),
-                  CusttomBottomBar(
-                    textBottom: controller.titlebottombar[2],
-                    onPressed: () {
-                      controller.changePage(2);
-                    },
-                    active: controller.currentpage == 2 ? true : false,
+                    active: controller.currentPage == 1 ? true : false,
                     iconBottom: Icons.format_list_bulleted_outlined,
                   ),
-
+              CusttomBottomBar(
+                textBottom: controller.titlebottombar[2],
+                onPressed: () {
+                  controller.changePage(2);
+                },
+                active: controller.currentPage == 2 ? true : false,
+                iconBottom: Icons.pending_actions_outlined,
+              ),
 
             ],
           ),
 
         ),
-        body: Container(child:controller.listPage.elementAt(controller.currentpage) ,),
+        body: Container(child:controller.listPage.elementAt(controller.currentPage) ,),
       );
     },);
   }
