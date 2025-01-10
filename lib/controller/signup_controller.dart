@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drop_down_list/model/selected_list_item.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
@@ -16,6 +17,8 @@ import '../core/function/uploadfile.dart';
 class SignupController extends GetxController {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseAuth auth = FirebaseAuth.instance;
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;  // تهيئة FirebaseAnalytics
+
 
   List<SelectedListItem> specialties = [];
   File? file;
@@ -54,6 +57,46 @@ class SignupController extends GetxController {
         await showOptionMenuImage(chooseImageOfCamera, chooseImageFromGallery);
   }
 
+
+  Future<void> logEventToFirestore(String eventType) async {
+    DocumentReference eventRef = firestore.collection('admin_events').doc(eventType);
+
+    await firestore.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(eventRef);
+
+      if (!snapshot.exists) {
+        // إذا لم يكن المستند موجودًا، قم بإنشائه
+        transaction.set(eventRef, {
+          'eventType': eventType,
+          'count': 1,
+          'lastUpdated': DateTime.now(),
+        });
+        await _analytics.logEvent(
+          name: eventType,
+          parameters:{
+            'email': emailController.text.trim(),
+            'Sign_status': 'success',
+          },
+        );
+      } else {
+        await _analytics.logEvent(
+          name: eventType,
+          parameters:{
+            'email': emailController.text.trim(),
+            'Sign_status': 'success',
+          },
+        );
+        // إذا كان المستند موجودًا، قم بتحديث العدد وتاريخ التحديث
+        int currentCount = snapshot.get('count');
+        transaction.update(eventRef, {
+          'count': currentCount + 1,
+          'lastUpdated': DateTime.now(),
+        });
+      }
+    }).catchError((error) {
+      print("Failed to log event: $error");
+    });
+  }
 
 
   Future<int> generateUniqueRandomNumber() async {
@@ -200,6 +243,7 @@ class SignupController extends GetxController {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
+      await logEventToFirestore('signUp');
       if(selectedValue=='doctor'){
         try {
         await  addDoctorToSpecialty(catId.text,auth.currentUser!.uid,nameController!.text,emailController.text);
@@ -296,3 +340,4 @@ class SignupController extends GetxController {
     super.onInit();
   }
 }
+

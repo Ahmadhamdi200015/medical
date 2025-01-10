@@ -27,6 +27,52 @@ class LoginController extends GetxController {
   }
 
 
+
+
+
+  Future<void> logEventToFirestore(String eventType) async {
+    DocumentReference eventRef = firestore.collection('admin_events').doc(eventType);
+
+    await firestore.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(eventRef);
+
+      if (!snapshot.exists) {
+        // إذا لم يكن المستند موجودًا، قم بإنشائه
+        transaction.set(eventRef, {
+          'eventType': eventType,
+          'count': 1,
+          'lastUpdated': DateTime.now(),
+        });
+        await _analytics.logEvent(
+          name: eventType,
+          parameters:{
+            'email': emailLoginController!.text.trim(),
+            'login_status': 'success',
+          },
+        );
+      } else {
+        // تسجيل الحدث في Firebase Analytics عند تسجيل الدخول بنجاح
+        await _analytics.logEvent(
+          name: eventType,
+          parameters:{
+            'email': emailLoginController!.text.trim(),
+            'login_status': 'success',
+          },
+        );
+        // إذا كان المستند موجودًا، قم بتحديث العدد وتاريخ التحديث
+        int currentCount = snapshot.get('count');
+        transaction.update(eventRef, {
+          'count': currentCount + 1,
+          'lastUpdated': DateTime.now(),
+        });
+      }
+    }).catchError((error) {
+      print("Failed to log event: $error");
+    });
+  }
+
+
+
   Future<void> saveUserToken(String userId) async {
     try {
       String? token = await FirebaseMessaging.instance.getToken();
@@ -141,14 +187,7 @@ class LoginController extends GetxController {
       myService.sharedPrefrences.setString('userId', userId.toString());
       myService.sharedPrefrences.setString('userRole', role!);
 
-      // تسجيل الحدث في Firebase Analytics عند تسجيل الدخول بنجاح
-      await _analytics.logEvent(
-        name: 'user_login',
-        parameters:{
-          'email': emailLoginController!.text.trim(),
-          'login_status': 'success',
-        },
-      );
+
       if (role != null && status=='accepted') {
         myService.sharedPrefrences.setString('userRole', role);
         if(approval=='0'){
@@ -156,6 +195,7 @@ class LoginController extends GetxController {
             'userId':userId
           });
         }else{
+          await logEventToFirestore('logIn');
           navigateBasedOnRole(role);
           // الحصول على FCM Token
           String? fcmToken = await FirebaseMessaging.instance.getToken();
